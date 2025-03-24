@@ -1,51 +1,49 @@
 import streamlit as st
 import asyncio
 import websockets
+import json
 
-def get_websocket_connection():
-    return "ws://localhost:8000/ws/modify_template"
+st.title("GenAI-Powered HTML Editor")
 
-async def websocket_request(html_content, prompt_text):
-    """Receives streamed responses from WebSocket"""
-    uri = get_websocket_connection()
-    try:
-        async with websockets.connect(uri) as websocket:
-            await websocket.send(f"{html_content}|{prompt_text}")
+html_input = st.text_area("Paste your HTML Template", 
+                          value="<html><head><title>Old Title</title></head><body><h1>Sample Page</h1></body></html>", 
+                          height=200)
 
-            response = []
-            while True:
-                try:
-                    message = await websocket.recv()
-                    response.append(message)
-                except websockets.exceptions.ConnectionClosed:
+prompt_text = st.text_area("Describe changes:", "Change the title to Fire Fire")
+
+async def stream_modifications():
+    """WebSocket function to modify HTML template in real-time"""
+    uri = "ws://127.0.0.1:8000/ws/modify_template"
+    
+    async with websockets.connect(uri) as websocket:
+        await websocket.send(json.dumps({"html_content": html_input, "prompt_text": prompt_text})) 
+        
+        modified_html = ""
+        
+        while True:
+            try:
+                suggestion = await websocket.recv()
+                if suggestion == "END":  
                     break
+                modified_html += suggestion + "\n"
+            except websockets.exceptions.ConnectionClosed:
+                break
 
-            return "\n".join(response)
-    except Exception as e:
-        return f"Error: {str(e)}"
+        return modified_html.strip()  # Trim unnecessary spaces
 
-def process_template_modification(html_input, prompt_input):
-    return asyncio.run(websocket_request(html_input, prompt_input))
+if st.button("Modify Template"):
+    with st.spinner("Processing..."):
+        response = asyncio.run(stream_modifications())
 
-def main():
-    st.title("GenAI HTML Template Editor")
+        if response:
+            st.success("Modification completed!")
 
-    if "html_content" not in st.session_state:
-        st.session_state.html_content = "<!DOCTYPE html>\n<html>\n<head><title>Sample</title></head>\n<body>\n<h1>Default Template</h1>\n</body>\n</html>"
+            # Shows HTML Code Output
+            st.subheader("Modified HTML Code")
+            st.code(response, language="html")
 
-    html_input = st.text_area("Edit HTML Template", value=st.session_state.html_content, height=300)
-    prompt_input = st.text_input("Modification Prompt", "")
-
-    if st.button("Modify Template"):
-        with st.spinner("Processing..."):
-            response = process_template_modification(html_input, prompt_input)
-            if response and not response.startswith("Error") and response.strip():
-                st.session_state.html_content = response
-            else:
-                st.error("Failed to modify template. Please try again.")
-
-    st.subheader("Modified HTML Preview")
-    st.code(st.session_state.get("html_content", ""), language="html")
-
-if __name__ == "__main__":
-    main()
+            # Shows HTML UI Preview
+            st.subheader("Live HTML Preview")
+            st.components.v1.html(response, height=400, scrolling=True)  # Render HTML as UI
+        else:
+            st.error("No response received.")

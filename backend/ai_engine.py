@@ -27,13 +27,13 @@ async def modify_html(html_content: str, prompt_text: str):
 
     full_prompt = prompt_template.format(html=html_content, changes=prompt_text)
 
+    
+    response = await asyncio.to_thread(client.text_generation, full_prompt, max_new_tokens=500)
+
     async def response_generator():
-        
-        response = await asyncio.to_thread(client.text_generation, full_prompt, max_new_tokens=500)
-
-        for chunk in response.split("\n"):
+        for chunk in response.split("\n"):  
             if chunk:
-                await asyncio.sleep(0.05)
-                yield chunk 
+                await asyncio.sleep(0.05)  
+                yield chunk  
 
-    return response_generator()
+    return response_generator()  
