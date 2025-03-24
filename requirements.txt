@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+streamlit
+requests
+websockets
+langchain
+transformers
+torch
+huggingface_hub
+python-dotenv
+python-multipart
+#uvicorn backend.main:app --reload
+#streamlit run frontend/app.py
